@@ -72,24 +72,26 @@ Examples:
   docker wappalyzer/cli https://www.example.com --pretty
 
 Options:
-  -b, --batch-size=...     Process links in batches
-  -d, --debug              Output debug messages
-  -t, --delay=ms           Wait for ms milliseconds between requests
-  -h, --help               This text
-  -H, --header             Extra header to send with requests
-  --html-max-cols=...      Limit the number of HTML characters per line processed
-  --html-max-rows=...      Limit the number of HTML lines processed
-  -D, --max-depth=...      Don't analyse pages more than num levels deep
-  -m, --max-urls=...       Exit when num URLs have been analysed
-  -w, --max-wait=...       Wait no more than ms milliseconds for page resources to load
-  -p, --probe              Perform a deeper scan by performing additional requests and inspecting DNS records
-  -P, --pretty             Pretty-print JSON output
-  --proxy=...              Proxy URL, e.g. 'http://user:pass@proxy:8080'
-  -r, --recursive          Follow links on pages (crawler)
-  -a, --user-agent=...     Set the user agent string
-  -n, --no-scripts         Disabled JavaScript on web pages
-  -N, --no-redirect        Disable cross-domain redirects
-  -e, --extended           Output additional information
+  -b, --batch-size=...       Process links in batches
+  -d, --debug                Output debug messages
+  -t, --delay=ms             Wait for ms milliseconds between requests
+  -h, --help                 This text
+  -H, --header               Extra header to send with requests
+  --html-max-cols=...        Limit the number of HTML characters per line processed
+  --html-max-rows=...        Limit the number of HTML lines processed
+  -D, --max-depth=...        Don't analyse pages more than num levels deep
+  -m, --max-urls=...         Exit when num URLs have been analysed
+  -w, --max-wait=...         Wait no more than ms milliseconds for page resources to load
+  -p, --probe=[basic|full]   Perform a deeper scan by performing additional requests and inspecting DNS records
+  -P, --pretty               Pretty-print JSON output
+  --proxy=...                Proxy URL, e.g. 'http://user:pass@proxy:8080'
+  -r, --recursive            Follow links on pages (crawler)
+  -a, --user-agent=...       Set the user agent string
+  -n, --no-scripts           Disabled JavaScript on web pages
+  -N, --no-redirect          Disable cross-domain redirects
+  -e, --extended             Output additional information
+  --local-storage=...        JSON object to use as local storage
+  --session-storage=...      JSON object to use as session storage
 `)
   process.exit(options.help ? 0 : 1)
 }
@@ -119,13 +121,38 @@ if (options.header) {
   )
 }
 
+const storage = {
+  local: {},
+  session: {},
+}
+
+for (const type of Object.keys(storage)) {
+  if (options[`${type}Storage`]) {
+    try {
+      storage[type] = JSON.parse(options[`${type}Storage`])
+
+      if (
+        !options[`${type}Storage`] ||
+        !Object.keys(options[`${type}Storage`]).length
+      ) {
+        throw new Error('Object has no properties')
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.log(`${type}Storage error: ${error.message || error}`)
+
+      process.exit(1)
+    }
+  }
+}
+
 ;(async function () {
   const wappalyzer = new Wappalyzer(options)
 
   try {
     await wappalyzer.init()
 
-    const site = await wappalyzer.open(url, headers)
+    const site = await wappalyzer.open(url, headers, storage)
 
     const results = await site.analyze()
 
